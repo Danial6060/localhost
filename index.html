@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webserv Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        h1 { color: #667eea; margin-bottom: 10px; }
+        h2 { color: #764ba2; border-bottom: 2px solid #667eea; padding-bottom: 10px; }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border-left: 4px solid #667eea;
+            background: #f9f9f9;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            cursor: pointer;
+            border-radius: 5px;
+            margin: 5px;
+            font-size: 14px;
+            transition: transform 0.2s;
+        }
+        button:hover { transform: scale(1.05); }
+        #output {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f0f0f0;
+            border-radius: 5px;
+            min-height: 60px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .success { color: #4CAF50; }
+        .error { color: #f44336; }
+        input[type="file"] {
+            margin: 10px 0;
+            padding: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Webserv HTTP/1.1 Server</h1>
+        <p>Welcome! This is a fully functional HTTP/1.1 server written in Rust.</p>
+
+        <div class="test-section">
+            <h2>🧪 Test Suite</h2>
+            
+            <h3>GET Request</h3>
+            <button onclick="testGet()">Test GET</button>
+            <button onclick="testGet404()">Test 404 Error</button>
+            
+            <h3>POST Request</h3>
+            <button onclick="testPost()">Send POST Data</button>
+            
+            <h3>DELETE Request</h3>
+            <button onclick="testDelete()">Test DELETE</button>
+            
+            <h3>Session & Cookies</h3>
+            <button onclick="testCookie()">Check Cookies</button>
+            <button onclick="clearCookies()">Clear Cookies</button>
+            
+            <h3>File Upload</h3>
+            <input type="file" id="fileInput">
+            <button onclick="uploadFile()">Upload File</button>
+            
+            <h3>CGI Script</h3>
+            <button onclick="testCGI()">Execute CGI Script</button>
+            <button onclick="testCGIPost()">CGI with POST Data</button>
+            
+            <h3>Other Tests</h3>
+            <button onclick="testRedirect()">Test Redirect</button>
+            <button onclick="testListing()">Test Directory Listing</button>
+        </div>
+
+        <div id="output">Output will appear here...</div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const output = document.getElementById('output');
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : '';
+            output.innerHTML = `<span class="${className}">${message}</span>`;
+        }
+
+        function testGet() {
+            log('Testing GET request...');
+            fetch('/static/test.txt')
+                .then(response => {
+                    if (!response.ok) throw new Error('Status: ' + response.status);
+                    return response.text();
+                })
+                .then(data => log('✅ GET Success!\\n' + data, 'success'))
+                .catch(err => log('❌ GET Failed: ' + err, 'error'));
+        }
+
+        function testGet404() {
+            log('Testing 404 error...');
+            fetch('/nonexistent-file')
+                .then(response => {
+                    if (response.status === 404) {
+                        return response.text().then(text => 
+                            log('✅ 404 Error handled correctly!\\nStatus: ' + response.status, 'success')
+                        );
+                    }
+                    throw new Error('Expected 404, got: ' + response.status);
+                })
+                .catch(err => log('Test result: ' + err, 'error'));
+        }
+
+        function testPost() {
+            log('Testing POST request...');
+            fetch('/', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({message: 'Hello from browser!', timestamp: Date.now()})
+            })
+            .then(response => response.text())
+            .then(data => log('✅ POST Success!\\n' + data, 'success'))
+            .catch(err => log('❌ POST Failed: ' + err, 'error'));
+        }
+
+        function testDelete() {
+            log('Testing DELETE request...');
+            fetch('/uploads/test.txt', {method: 'DELETE'})
+            .then(response => {
+                if (response.status === 204 || response.status === 404) {
+                    log('✅ DELETE executed!\\nStatus: ' + response.status, 'success');
+                } else {
+                    throw new Error('Unexpected status: ' + response.status);
+                }
+            })
+            .catch(err => log('❌ DELETE test: ' + err, 'error'));
+        }
+
+        function testCookie() {
+    log('Checking cookies and session...');
+    
+    // Make a fetch request to trigger cookie setting
+    fetch('/')
+        .then(response => {
+            // Check Set-Cookie header (won't be visible due to browser security)
+            log('Response received. Checking cookies...');
+            
+            // Wait a moment for cookie to be set
+            setTimeout(() => {
+                const cookies = document.cookie;
+                if (cookies) {
+                    log('✅ Cookies found:\n' + cookies, 'success');
+                } else {
+                    log('⚠️ No cookies visible.\n\nThis could mean:\n1. Cookies are HttpOnly (secure, but not visible to JS)\n2. Cookie domain/path mismatch\n3. Browser blocked cookies\n\nCheck browser DevTools → Application → Cookies', 'error');
+                }
+            }, 100);
+        })
+        .catch(err => log('❌ Failed: ' + err, 'error'));
+}
+        function clearCookies() {
+            document.cookie.split(";").forEach(c => {
+                document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+            });
+            log('✅ Cookies cleared!', 'success');
+        }
+
+        function uploadFile() {
+            const fileInput = document.getElementById('fileInput');
+            if (!fileInput.files[0]) {
+                log('❌ Please select a file first!', 'error');
+                return;
+            }
+
+            log('Uploading file: ' + fileInput.files[0].name + '...');
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            fetch('/uploads', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.text())
+            .then(data => log('✅ Upload Success!\\n' + data, 'success'))
+            .catch(err => log('❌ Upload Failed: ' + err, 'error'));
+        }
+
+        function testCGI() {
+            log('Testing CGI script...');
+            fetch('/cgi-bin/test.py?name=Browser&value=42')
+                .then(response => response.text())
+                .then(data => {
+                    const preview = data.substring(0, 500);
+                    log('✅ CGI Success!\\n' + preview + '\\n...', 'success');
+                })
+                .catch(err => log('❌ CGI Failed: ' + err, 'error'));
+        }
+
+        function testCGIPost() {
+            log('Testing CGI with POST data...');
+            fetch('/cgi-bin/test.py', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: 'field1=value1&field2=value2'
+            })
+            .then(response => response.text())
+            .then(data => {
+                const preview = data.substring(0, 500);
+                log('✅ CGI POST Success!\\n' + preview + '\\n...', 'success');
+            })
+            .catch(err => log('❌ CGI POST Failed: ' + err, 'error'));
+        }
+
+        function testRedirect() {
+            log('Testing redirect...');
+            fetch('/redirect', {redirect: 'manual'})
+                .then(response => {
+                    if (response.type === 'opaqueredirect' || response.status === 301 || response.status === 302) {
+                        log('✅ Redirect working! Status: ' + response.status, 'success');
+                    } else {
+                        log('Status: ' + response.status, 'info');
+                    }
+                })
+                .catch(err => log('Redirect result: ' + err, 'error'));
+        }
+
+        function testListing() {
+            log('Testing directory listing...');
+            fetch('/uploads/')
+                .then(response => response.text())
+                .then(data => {
+                    if (data.includes('Index of')) {
+                        log('✅ Directory listing works!', 'success');
+                    } else {
+                        log('Response received but no directory listing found', 'error');
+                    }
+                })
+                .catch(err => log('❌ Listing Failed: ' + err, 'error'));
+        }
+
+        window.onload = function() {
+            setTimeout(() => {
+                if (document.cookie) {
+                    console.log('Session cookie detected:', document.cookie);
+                }
+            }, 500);
+        };
+    </script>
+</body>
+</html>
