@@ -151,26 +151,15 @@
         }
 
         function testCookie() {
-    log('Checking cookies and session...');
-    
-    // Make a fetch request to trigger cookie setting
-    fetch('/')
-        .then(response => {
-            // Check Set-Cookie header (won't be visible due to browser security)
-            log('Response received. Checking cookies...');
-            
-            // Wait a moment for cookie to be set
-            setTimeout(() => {
-                const cookies = document.cookie;
-                if (cookies) {
-                    log('✅ Cookies found:\n' + cookies, 'success');
-                } else {
-                    log('⚠️ No cookies visible.\n\nThis could mean:\n1. Cookies are HttpOnly (secure, but not visible to JS)\n2. Cookie domain/path mismatch\n3. Browser blocked cookies\n\nCheck browser DevTools → Application → Cookies', 'error');
-                }
-            }, 100);
-        })
-        .catch(err => log('❌ Failed: ' + err, 'error'));
-}
+            log('Checking cookies and session...');
+            const cookies = document.cookie;
+            if (cookies) {
+                log('✅ Cookies found:\\n' + cookies, 'success');
+            } else {
+                log('No cookies set. The server should set a session cookie on first visit.', 'error');
+            }
+        }
+
         function clearCookies() {
             document.cookie.split(";").forEach(c => {
                 document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");

@@ -395,7 +395,7 @@ if metadata.is_dir() {
         // Check for CGI
         let file_path = self.resolve_path(uri_path, route);
         if let Some(ref cgi_ext) = route.cgi_extension {
-            if file_path.ends_with(cgi_ext) {
+            if uri_path.ends_with(cgi_ext) {
                 return self.execute_cgi(fd, route, &file_path);
             }
         }
@@ -490,71 +490,85 @@ if metadata.is_dir() {
     }
 
     fn execute_cgi(&mut self, fd: RawFd, route: &Route, script_path: &str) -> io::Result<()> {
-        let client = self.clients.get(&fd).unwrap();
-        let request = &client.request;
-        let server_config = &client.server_config;
+    let client = self.clients.get(&fd).unwrap();
+    let request = &client.request;
+    let server_config = &client.server_config;
 
-        let cgi_path = route.cgi_path.as_ref().map(|s| s.as_str()).unwrap_or("/usr/bin/python3");
-        let query_string = request.uri.split('?').nth(1).unwrap_or("");
+    let cgi_path = route.cgi_path.as_ref().map(|s| s.as_str()).unwrap_or("/usr/bin/python3");
+    let query_string = request.uri.split('?').nth(1).unwrap_or("");
 
-        let remote_addr = client.stream.peer_addr()
-            .map(|a| a.ip().to_string())
-            .unwrap_or_else(|_| "0.0.0.0".to_string());
+    // ADD THIS DEBUG LINE
+    eprintln!("DEBUG: Executing CGI: {} {}", cgi_path, script_path);
 
-        match CgiHandler::execute(
-            cgi_path,
-            script_path,
-            &request.method,
-            query_string,
-            &request.headers,
-            &request.body,
-            &server_config.host,
-            server_config.port,
-            &remote_addr,
-        ) {
-            Ok(output) => {
-                match CgiHandler::parse_cgi_output(&output) {
-                    Ok((cgi_headers, body)) => {
-                        let status_code = cgi_headers
-                            .get("status")
-                            .and_then(|s| s.split_whitespace().next())
-                            .and_then(|s| s.parse::<u16>().ok())
-                            .unwrap_or(200);
+    let remote_addr = client.stream.peer_addr()
+        .map(|a| a.ip().to_string())
+        .unwrap_or_else(|_| "0.0.0.0".to_string());
 
-                        let mut response = HttpResponse::new(status_code);
+    match CgiHandler::execute(
+        cgi_path,
+        script_path,
+        &request.method,
+        query_string,
+        &request.headers,
+        &request.body,
+        &server_config.host,
+        server_config.port,
+        &remote_addr,
+    ) {
+        Ok(output) => {
+            // ADD THIS DEBUG LINE
+            eprintln!("DEBUG: CGI output length: {}", output.len());
+            
+            match CgiHandler::parse_cgi_output(&output) {
+                Ok((cgi_headers, body)) => {
+                    // ADD THIS DEBUG LINE
+                    eprintln!("DEBUG: CGI parsed successfully");
+                    
+                    let status_code = cgi_headers
+                        .get("status")
+                        .and_then(|s| s.split_whitespace().next())
+                        .and_then(|s| s.parse::<u16>().ok())
+                        .unwrap_or(200);
 
-                        for (key, value) in cgi_headers {
-                            if key != "status" {
-                                response.add_header(key, value);
-                            }
+                    let mut response = HttpResponse::new(status_code);
+
+                    for (key, value) in cgi_headers {
+                        if key != "status" {
+                            response.add_header(key, value);
                         }
-
-                        if !response.headers.contains_key("Content-Type") {
-                            response.add_header("Content-Type".to_string(), "text/html".to_string());
-                        }
-
-                        response.set_body(body);
-                        self.send_response(fd, response)
                     }
-                    Err(_) => {
-                        let response = HttpResponse::error_page(
-                            500,
-                            server_config.error_pages.get(&500).map(|s| s.as_str()),
-                        );
-                        self.send_response(fd, response)
+
+                    if !response.headers.contains_key("Content-Type") {
+                        response.add_header("Content-Type".to_string(), "text/html".to_string());
                     }
+
+                    response.set_body(body);
+                    self.send_response(fd, response)
+                }
+                Err(e) => {
+                    // ADD THIS DEBUG LINE
+                    eprintln!("DEBUG: CGI parse error: {}", e);
+                    
+                    let response = HttpResponse::error_page(
+                        500,
+                        server_config.error_pages.get(&500).map(|s| s.as_str()),
+                    );
+                    self.send_response(fd, response)
                 }
             }
-            Err(_) => {
-                let response = HttpResponse::error_page(
-                    500,
-                    server_config.error_pages.get(&500).map(|s| s.as_str()),
-                );
-                self.send_response(fd, response)
-            }
+        }
+        Err(e) => {
+            // ADD THIS DEBUG LINE
+            eprintln!("DEBUG: CGI execute error: {}", e);
+            
+            let response = HttpResponse::error_page(
+                500,
+                server_config.error_pages.get(&500).map(|s| s.as_str()),
+            );
+            self.send_response(fd, response)
         }
     }
-
+}
     fn handle_file_upload(&mut self, fd: RawFd, route: &Route) -> io::Result<()> {
         let client = self.clients.get(&fd).unwrap();
         let request = &client.request;

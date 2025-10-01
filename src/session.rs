@@ -93,7 +93,7 @@ pub fn parse_cookies(cookie_header: &str) -> HashMap<String, String> {
 }
 
 pub fn create_set_cookie(name: &str, value: &str, max_age: Option<u64>) -> String {
-    let mut cookie = format!("{}={}; Path=/; HttpOnly", name, value);
+    let mut cookie = format!("{}={}; Path=/", name, value);  // No HttpOnly
     
     if let Some(age) = max_age {
         cookie.push_str(&format!("; Max-Age={}", age));

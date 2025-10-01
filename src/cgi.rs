@@ -59,13 +59,15 @@ impl CgiHandler {
     }
 
     // Get directory of script for proper relative path handling
-    let script_dir = std::path::Path::new(script_path)
-        .parent()
-        .unwrap_or(std::path::Path::new("."));
+    let script_path_obj = std::path::Path::new(script_path);
+    let script_dir = script_path_obj.parent().unwrap_or(std::path::Path::new("."));
+    let script_filename = script_path_obj.file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(script_path);
 
     // Execute CGI
     let mut cmd = Command::new(cgi_path);
-    cmd.arg(script_path)
+    cmd.arg(script_filename)
         .current_dir(script_dir)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
